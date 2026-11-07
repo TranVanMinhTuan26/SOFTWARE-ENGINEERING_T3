@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: brewlite
+      POSTGRES_PASSWORD: brewlite_dev_password
+      POSTGRES_DB: brewlite
+    ports: ["${DB_PORT:-5433}:5432"]
+    volumes: [brewlite_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brewlite -d brewlite"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  api:
+    build: ./apps/api
+    environment:
+      DATABASE_URL: postgresql://brewlite:brewlite_dev_password@db:5432/brewlite?schema=public
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me}
+      STAFF_KEY: ${STAFF_KEY:-local-staff-key-change-me}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@brewlite.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      PORT: 4000
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:4000/payments/vnpay/return}
+    ports: ["4000:4000"]
+    depends_on:
+      db: {condition: service_healthy}
+    command: sh -c "(npx prisma migrate deploy || (npx prisma db push && npx prisma migrate resolve --applied 20261015000000_khoi_tao_co_so_du_lieu)) && npm run seed && npm run start:prod"
+  web:
+    build: ./apps/web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports: ["3000:3000"]
+    depends_on: [api]
+volumes:
+  brewlite_db:
