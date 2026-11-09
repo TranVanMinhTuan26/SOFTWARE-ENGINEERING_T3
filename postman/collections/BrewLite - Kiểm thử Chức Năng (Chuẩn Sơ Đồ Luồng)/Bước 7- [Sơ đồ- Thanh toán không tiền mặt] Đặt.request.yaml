@@ -1,0 +1,30 @@
+$kind: http-request
+name: "07 Create VNPay order"
+url: http://localhost:4000/orders
+method: POST
+headers:
+  Authorization: "Bearer {{token}}"
+  Content-Type: "application/json"
+body:
+  type: text
+  content: |-
+    {
+      "items": [
+        {
+          "productId": "{{productId}}",
+          "size": "M",
+          "toppings": [],
+          "qty": 1
+        }
+      ],
+      "paymentMethod": "VNPay"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Order created", () => pm.response.to.have.status(201));
+      const order = pm.response.json();
+      pm.test("Order pending", () => pm.expect(order.status).to.eql("PENDING"));
+      pm.collectionVariables.set("orderId", order.id);
+    language: text/javascript
+order: 7000

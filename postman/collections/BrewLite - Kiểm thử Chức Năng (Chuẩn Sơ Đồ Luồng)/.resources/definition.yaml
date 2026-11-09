@@ -1,0 +1,8 @@
+$kind: collection
+description: "Bộ kiểm thử chức năng bám sát 100% sơ đồ luồng nghiệp vụ (Happy Path) trong đề bài: Xem menu -> Chọn sản phẩm -> Đăng nhập -> Thêm vào giỏ hàng -> Xem giỏ & tổng tiền -> Thanh toán không tiền mặt -> Xác nhận đơn (mã đơn) -> Xem lịch sử."
+variables:
+  base_url: http://localhost:4000
+  product_id: ""
+  user_email: ""
+  jwt_token: ""
+  order_id: ""

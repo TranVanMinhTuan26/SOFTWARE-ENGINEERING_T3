@@ -1,0 +1,10 @@
+$kind: http-request
+name: "02 Product detail"
+url: http://localhost:4000/products/{{productId}}
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+    language: text/javascript
+order: 2000

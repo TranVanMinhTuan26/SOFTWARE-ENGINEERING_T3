@@ -1,0 +1,61 @@
+name: Reusable quality
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: brewlite_test
+          POSTGRES_PASSWORD: test_only_password
+          POSTGRES_DB: brewlite_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U brewlite_test -d brewlite_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://brewlite_test:test_only_password@localhost:5432/brewlite_test?schema=public
+      JWT_SECRET: ci-test-only-secret
+      VNPAY_TMN_CODE: TESTONLY
+      VNPAY_HASH_SECRET: ci-test-only-signing-key
+      VNPAY_RETURN_URL: http://localhost:4000/payments/vnpay/return
+      WEB_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run lint
+      - run: npm test
+      - run: npm run db:deploy && npm run db:seed
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Integration and browser checks
+        run: |
+          npm run start:prod -w backend > /tmp/api.log 2>&1 &
+          npm run start -w frontend > /tmp/web.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:4000/health/ready && curl -fsS http://localhost:3000 >/dev/null; then break; fi
+            sleep 2
+          done
+          npm run smoke
+          npm run test:integration
+          npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-evidence
+          path: |
+            playwright-report
+            test-results
+            /tmp/api.log
+            /tmp/web.log

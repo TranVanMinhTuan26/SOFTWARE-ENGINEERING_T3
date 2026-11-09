@@ -1,0 +1,14 @@
+$kind: http-request
+name: "01 Menu"
+url: http://localhost:4000/products
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Menu loads", () => pm.response.to.have.status(200));
+      const product = pm.response.json().find(p => p.available);
+      pm.test("Available product exists", () => pm.expect(product).to.be.an("object"));
+      if (product) pm.collectionVariables.set("productId", product.id);
+      pm.collectionVariables.set("email", "postman-" + pm.variables.replaceIn("{{$guid}}") + "@example.test");
+    language: text/javascript
+order: 1000

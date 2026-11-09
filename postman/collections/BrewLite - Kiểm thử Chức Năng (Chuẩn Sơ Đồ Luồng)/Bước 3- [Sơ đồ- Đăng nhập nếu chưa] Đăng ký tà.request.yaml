@@ -1,0 +1,21 @@
+$kind: http-request
+name: "03 Register customer"
+url: http://localhost:4000/auth/register
+method: POST
+headers:
+  Content-Type: "application/json"
+body:
+  type: text
+  content: |-
+    {
+      "email": "{{email}}",
+      "password": "TestPass123!",
+      "fullName": "Postman VNPay Customer"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Registered", () => pm.response.to.have.status(201));
+      pm.test("No password hash", () => pm.expect(pm.response.text()).not.to.include("passwordHash"));
+    language: text/javascript
+order: 3000

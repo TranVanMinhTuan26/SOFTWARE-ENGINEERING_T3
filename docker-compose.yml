@@ -1,0 +1,50 @@
+name: brewlite-assignment2
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: brewlite
+      POSTGRES_PASSWORD: brewlite_dev_password
+      POSTGRES_DB: brewlite
+    ports: ["127.0.0.1:${DB_PORT:-5433}:5432"]
+    volumes: [brewlite_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U brewlite -d brewlite"]
+      interval: 5s
+      retries: 20
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      NODE_ENV: ${API_NODE_ENV:-production}
+      ALLOW_INSECURE_PASSWORD_RESET: ${ALLOW_INSECURE_PASSWORD_RESET:-false}
+      DATABASE_URL: postgresql://brewlite:brewlite_dev_password@db:5432/brewlite?schema=public
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@brewlite.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:4000/payments/vnpay/return}
+    ports: ["127.0.0.1:4000:4000"]
+    depends_on:
+      db: {condition: service_healthy}
+    command: sh -c "npm run db:deploy && npm run seed && npm run start:prod"
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      start_period: 60s
+      retries: 10
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_ENABLE_LOCAL_DEMO_PASSWORD_RESET: ${NEXT_PUBLIC_ENABLE_LOCAL_DEMO_PASSWORD_RESET:-false}
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      api: {condition: service_healthy}
+volumes:
+  brewlite_db:

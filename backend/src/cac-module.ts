@@ -1,0 +1,11 @@
+export { AppModule } from './tasks/task-01-khoi-tao/ung-dung.module';
+export { prisma } from './tasks/task-01-khoi-tao/ket-noi-prisma';
+export { CartService } from './tasks/task-05-gio-hang/gio-hang.service';
+export { OrderService } from './tasks/task-06-don-hang/don-hang.service';
+export * from './tasks/task-07-xac-thuc/xac-thuc.module';
+export * from './tasks/task-06-don-hang/don-hang.module';
+export * from './tasks/task-05-gio-hang/gio-hang.module';
+export * from './tasks/task-08-thanh-toan/thanh-toan.module';
+export * from './tasks/task-10-quan-tri/quan-tri.module';
+export * from './tasks/task-02-san-pham/san-pham.module';
+export * from './tasks/task-01-khoi-tao/bao-ve.guard';
