@@ -15,7 +15,8 @@ services:
   api:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: Dockerfile
+      target: api
     environment:
       NODE_ENV: ${API_NODE_ENV:-production}
       ALLOW_INSECURE_PASSWORD_RESET: ${ALLOW_INSECURE_PASSWORD_RESET:-false}
@@ -39,7 +40,8 @@ services:
   web:
     build:
       context: .
-      dockerfile: frontend/Dockerfile
+      dockerfile: Dockerfile
+      target: web
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
         NEXT_PUBLIC_ENABLE_LOCAL_DEMO_PASSWORD_RESET: ${NEXT_PUBLIC_ENABLE_LOCAL_DEMO_PASSWORD_RESET:-false}

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import type { HistoryOrder, ActiveTrackingOrder, OrderItemDetail } from '../kieu-don-hang';
 import { getOrderStatusMeta, getFallbackItemsForOrder } from '../tro-giup-don-hang';
 import { displayOrderCode } from '../../dung-chung/ma-don-hang';
+import { getConfirmedPayment } from '../../dung-chung/xac-minh-thanh-toan';
 import { useCartContext } from '../../task-05-gio-hang/NguCanhGioHang';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -103,20 +104,24 @@ export function useOrdersPage() {
     const orderIdParam = searchParams.get('orderId') || searchParams.get('vnp_TxnRef');
 
     if (vnpayStatus === 'success') {
-      const orderCode = orderIdParam ? displayOrderCode({ id: orderIdParam }) : '';
-
-      try {
+      const finishReturn = () => {
+        const url = new URL(window.location.href);
+        for (const key of ['vnpay', 'code', 'vnp_ResponseCode', 'vnp_TxnRef']) url.searchParams.delete(key);
+        window.history.replaceState({}, '', url.pathname + url.search);
+      };
+      void getConfirmedPayment(API, storedToken, orderIdParam).then(async order => {
+        const cleared = await fetch(`${API}/cart`, { method: 'DELETE', headers: { Authorization: `Bearer ${storedToken}` } });
+        if (!cleared.ok) throw new Error('Thanh toán đã được xác nhận nhưng chưa cập nhật được giỏ hàng. Vui lòng tải lại.');
         clearCart();
-      } catch {}
-      fetch(`${API}/cart`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${storedToken}` },
-      }).catch(() => {});
-
-      setBanner({
-        show: true,
-        type: 'success',
-        message: `🎉 Thanh toán VNPay Sandbox thành công! Đơn hàng ${orderCode} đã được hệ thống ghi nhận và chuyển cho Barista pha chế.`,
+        setBanner({
+          show: true,
+          type: 'success',
+          message: `🎉 Thanh toán VNPay Sandbox thành công! Đơn hàng ${displayOrderCode(order)} đã được hệ thống ghi nhận và chuyển cho Barista pha chế.`,
+        });
+        finishReturn();
+      }).catch(error => {
+        setBanner({ show: true, type: 'error', message: error.message || 'Không thể xác minh thanh toán. Giỏ hàng được giữ nguyên.' });
+        finishReturn();
       });
     } else if (vnpayStatus === 'out_of_stock') {
       setBanner({

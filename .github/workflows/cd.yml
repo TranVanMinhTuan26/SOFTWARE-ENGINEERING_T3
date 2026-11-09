@@ -31,13 +31,15 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: backend/Dockerfile
+          file: Dockerfile
+          target: api
           push: true
           tags: ghcr.io/${{ steps.owner.outputs.value }}/brewlite-api:${{ github.sha }}
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: frontend/Dockerfile
+          file: Dockerfile
+          target: web
           push: true
           build-args: NEXT_PUBLIC_API_URL=${{ vars.API_URL }}
           tags: ghcr.io/${{ steps.owner.outputs.value }}/brewlite-web:${{ github.sha }}

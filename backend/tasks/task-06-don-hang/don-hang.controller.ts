@@ -78,6 +78,7 @@ export class OrderController {
   @UseGuards(OrderProcessingGuard)
   @Patch(':id/status')
   async updateStatus(@Param('id') id: string, @Body() body: UpdateOrderStatusDto) {
+    if (body.status === 'PAID') throw new BadRequestException('Thanh toán chỉ được xác nhận qua VNPay.');
     return transitionOrderStatus(prisma, id, body.status, {
       cancelReason: body?.cancelReason,
     });

@@ -12,10 +12,12 @@
     "baseUrl": "./",
     "incremental": true,
     "strict": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "rootDir": "."
   },
   "include": [
-    "src/**/*.ts",
+    "*.ts",
+    "tasks/**/*.ts",
     "prisma/**/*.ts"
   ],
   "exclude": [

@@ -1,5 +1,5 @@
 import './globals.css';
-import { CartProvider } from '../features/task-05-gio-hang/NguCanhGioHang';
+import { CartProvider } from '../task-05-gio-hang/NguCanhGioHang';
 
 export const metadata = {
   title: 'BrewLite — Coffee, made easy',

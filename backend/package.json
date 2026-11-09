@@ -5,7 +5,7 @@
   "scripts": {
     "start:dev": "nest start --watch",
     "build": "nest build",
-    "start:prod": "node -e \"require(require('fs').existsSync('./dist/src/main.js')?'./dist/src/main':'./dist/main')\"",
+    "start:prod": "node dist/main.js",
     "seed": "ts-node prisma/seed.ts",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
@@ -57,8 +57,9 @@
     },
     "testEnvironment": "node",
     "collectCoverageFrom": [
-      "src/**/*.ts",
-      "!src/**/*.spec.ts"
+      "*.ts",
+      "tasks/**/*.ts",
+      "!**/*.spec.ts"
     ]
   }
 }

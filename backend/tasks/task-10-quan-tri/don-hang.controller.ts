@@ -12,15 +12,6 @@ import { UpdateOrderStatusDto } from '../task-06-don-hang/don-hang.dto';
 export class AdminOrdersController {
 @Get('orders') @UseGuards(OrderProcessingGuard) orders() {
     return prisma.order.findMany({
-      where: {
-        OR: [
-          { status: { in: [OrderStatus.PAID, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.COMPLETED] } },
-          {
-            status: OrderStatus.CANCELLED,
-            payment: { status: { in: ['SUCCESS', 'REFUNDED', 'REFUND_PENDING'] } },
-          },
-        ],
-      },
       include: {
         user: { select: { email: true, fullName: true, phone: true } },
         items: { include: { product: true } },
@@ -34,6 +25,7 @@ export class AdminOrdersController {
 @Patch('orders/:id/status')
   @UseGuards(OrderProcessingGuard)
   async updateOrder(@Param('id') id: string, @Body() body: UpdateOrderStatusDto) {
+    if (body.status === 'PAID') throw new BadRequestException('Thanh toán chỉ được xác nhận qua VNPay.');
     return transitionOrderStatus(prisma, id, body.status, {
       cancelReason: body?.cancelReason,
     });

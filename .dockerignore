@@ -11,3 +11,5 @@ docs
 postman
 test-results
 playwright-report
+**/coverage
+**/*.log

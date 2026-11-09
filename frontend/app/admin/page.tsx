@@ -1,29 +1,29 @@
 'use client';
 
 import React from 'react';
-import { useAdminState } from '../../features/task-10-quan-tri/hooks/useTrangThaiQuanTri';
-import { AdminStyles } from '../../features/task-10-quan-tri/thanh-phan/GiaoDienQuanTri';
-import { AdminAuthChecking } from '../../features/task-10-quan-tri/thanh-phan/DangKiemTraQuyenQuanTri';
-import { AdminLoginCard } from '../../features/task-10-quan-tri/thanh-phan/TheDangNhapQuanTri';
-import { AdminCustomerBlocked } from '../../features/task-10-quan-tri/thanh-phan/ChanKhachHangQuanTri';
-import { AdminSidebar } from '../../features/task-10-quan-tri/thanh-phan/ThanhBenQuanTri';
-import { AdminHeader } from '../../features/task-10-quan-tri/thanh-phan/DauTrangQuanTri';
-import { AccessDeniedCard } from '../../features/task-10-quan-tri/thanh-phan/TheTuChoiTruyCap';
+import { useAdminState } from '../../task-10-quan-tri/hooks/useTrangThaiQuanTri';
+import { AdminStyles } from '../../task-10-quan-tri/thanh-phan/GiaoDienQuanTri';
+import { AdminAuthChecking } from '../../task-10-quan-tri/thanh-phan/DangKiemTraQuyenQuanTri';
+import { AdminLoginCard } from '../../task-10-quan-tri/thanh-phan/TheDangNhapQuanTri';
+import { AdminCustomerBlocked } from '../../task-10-quan-tri/thanh-phan/ChanKhachHangQuanTri';
+import { AdminSidebar } from '../../task-10-quan-tri/thanh-phan/ThanhBenQuanTri';
+import { AdminHeader } from '../../task-10-quan-tri/thanh-phan/DauTrangQuanTri';
+import { AccessDeniedCard } from '../../task-10-quan-tri/thanh-phan/TheTuChoiTruyCap';
 
 // Tabs
-import { OrdersTab } from '../../features/task-10-quan-tri/cac-tab/TabDonHang';
-import { ProductsTab } from '../../features/task-10-quan-tri/cac-tab/TabSanPham';
-import { InventoryTab } from '../../features/task-10-quan-tri/cac-tab/TabKhoHang';
-import { PromotionsTab } from '../../features/task-10-quan-tri/cac-tab/TabKhuyenMai';
-import { CustomersTab } from '../../features/task-10-quan-tri/cac-tab/TabKhachHang';
-import { PermissionsTab } from '../../features/task-10-quan-tri/cac-tab/TabPhanQuyen';
+import { OrdersTab } from '../../task-10-quan-tri/cac-tab/TabDonHang';
+import { ProductsTab } from '../../task-10-quan-tri/cac-tab/TabSanPham';
+import { InventoryTab } from '../../task-10-quan-tri/cac-tab/TabKhoHang';
+import { PromotionsTab } from '../../task-10-quan-tri/cac-tab/TabKhuyenMai';
+import { CustomersTab } from '../../task-10-quan-tri/cac-tab/TabKhachHang';
+import { PermissionsTab } from '../../task-10-quan-tri/cac-tab/TabPhanQuyen';
 
 // Modals
-import { RolePermissionsModal } from '../../features/task-10-quan-tri/hop-thoai/HopThoaiPhanQuyenVaiTro';
-import { ProductFormModal } from '../../features/task-10-quan-tri/hop-thoai/HopThoaiSanPham';
-import { PromotionFormModal } from '../../features/task-10-quan-tri/hop-thoai/HopThoaiTaoKhuyenMai';
-import { UserFormModal } from '../../features/task-10-quan-tri/hop-thoai/HopThoaiTaoTaiKhoan';
-import { CustomerFormModal } from '../../features/task-10-quan-tri/hop-thoai/HopThoaiThemKhachHang';
+import { RolePermissionsModal } from '../../task-10-quan-tri/hop-thoai/HopThoaiPhanQuyenVaiTro';
+import { ProductFormModal } from '../../task-10-quan-tri/hop-thoai/HopThoaiSanPham';
+import { PromotionFormModal } from '../../task-10-quan-tri/hop-thoai/HopThoaiTaoKhuyenMai';
+import { UserFormModal } from '../../task-10-quan-tri/hop-thoai/HopThoaiTaoTaiKhoan';
+import { CustomerFormModal } from '../../task-10-quan-tri/hop-thoai/HopThoaiThemKhachHang';
 
 export default function AdminPage() {
   const admin = useAdminState();

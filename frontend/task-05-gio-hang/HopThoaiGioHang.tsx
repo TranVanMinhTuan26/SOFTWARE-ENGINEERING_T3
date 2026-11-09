@@ -494,13 +494,15 @@ export function CartModal(props: CartModalProps) {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       fontSize: '12px',
+                      gap: '12px',
+                      lineHeight: 1.4,
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#065f46', fontWeight: 700 }}>
-                      <span>⭐</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0, color: '#065f46', fontWeight: 700 }}>
+                      <span aria-hidden="true" style={{ flexShrink: 0 }}>⭐</span>
                       <span>Điểm tích lũy dự kiến nhận ({money(pointRateNumber)} = 1 điểm):</span>
                     </div>
-                    <span style={{ fontWeight: 800, color: '#059669', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 800, color: '#059669', fontSize: '13px', flexShrink: 0, whiteSpace: 'nowrap', minWidth: '9ch', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                       +{expectedEarnedPoints} điểm
                     </span>
                   </div>

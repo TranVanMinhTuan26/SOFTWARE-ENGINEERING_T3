@@ -604,7 +604,7 @@ export function useAdminState() {
       const activeToken = getActiveAdminToken();
       await loadUsers(activeToken);
 
-      // 1. Fetch Orders from backend API (chỉ lấy các đơn đã thanh toán hoặc đã hủy sau khi thanh toán)
+      // 1. Fetch Orders from backend API (lấy đầy đủ trạng thái đơn hàng)
       let apiOrdersList: OrderItem[] = [];
       let apiFetchedSuccessfully = false;
       if (activeToken) {
@@ -616,15 +616,7 @@ export function useAdminState() {
             apiFetchedSuccessfully = true;
             const data = await res.json();
             if (Array.isArray(data)) {
-              const paidOrders = data.filter((o: any) => {
-                if (o.status === 'PENDING' || o.status === 'PAYMENT_FAILED') return false;
-                if (o.status === 'CANCELLED') {
-                  const pStatus = o.payment?.status;
-                  return pStatus === 'SUCCESS' || pStatus === 'REFUNDED' || pStatus === 'REFUND_PENDING';
-                }
-                return true;
-              });
-              apiOrdersList = paidOrders.map((o: any) => {
+              apiOrdersList = data.map((o: any) => {
                 const custEmail = o.user?.email || '';
                 const custName = o.user?.fullName || '';
                 const displayCust =
@@ -664,7 +656,7 @@ export function useAdminState() {
         } catch {}
       }
 
-      // 2. Read local orders (chỉ đọc nếu chưa lấy được từ API và lọc bỏ đơn chưa thanh toán)
+      // 2. Read local orders (chỉ đọc nếu chưa lấy được từ API)
       let localOrdersList: OrderItem[] = [];
       if (!apiFetchedSuccessfully) {
         try {
@@ -673,7 +665,6 @@ export function useAdminState() {
             const storedOrders = JSON.parse(storedOrdersRaw);
             if (Array.isArray(storedOrders) && storedOrders.length > 0) {
               localOrdersList = storedOrders
-                .filter((o: any) => o.status !== 'PENDING' && o.status !== 'PAYMENT_FAILED')
                 .map((o: any, idx: number) => {
                   const cEmail = (o.customerEmail || o.customer || o.userEmail || '').trim();
                   const cName = (o.customerName || '').trim();
@@ -1000,7 +991,7 @@ export function useAdminState() {
       PENDING: { text: 'Chờ thanh toán', step: 1 },
       PAID: { text: 'Đã thanh toán', step: 2 },
       PREPARING: { text: 'Đang pha chế', step: 2 },
-      READY: { text: 'Đang giao', step: 3 },
+      READY: { text: 'Chờ khách nhận', step: 3 },
       COMPLETED: { text: 'Hoàn tất', step: 4 },
       CANCELLED: { text: 'Đã hủy', step: 1 },
     };
@@ -1011,6 +1002,11 @@ export function useAdminState() {
     const orderDisplayCode = targetOrder?.code || orderIdOrCode;
 
     const activeToken = getActiveAdminToken();
+    if (!activeToken) {
+      triggerToast('Vui lòng đăng nhập lại để cập nhật đơn hàng.');
+      return;
+    }
+    let updatedOrder: any = null;
     if (activeToken) {
       try {
         const res = await fetch(`${API}/admin/orders/${encodeURIComponent(apiId)}/status`, {
@@ -1019,7 +1015,7 @@ export function useAdminState() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${activeToken}`,
           },
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify({ status: newStatus, ...(newStatus === 'CANCELLED' ? { cancelReason: 'Hủy từ trang quản trị' } : {}) }),
         });
         const resData = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -1027,8 +1023,10 @@ export function useAdminState() {
           syncDataFromClient();
           return;
         }
+        updatedOrder = resData;
       } catch (err: any) {
-        console.warn('Không thể gửi trạng thái lên API backend:', err);
+        triggerToast('Không thể kết nối máy chủ. Trạng thái đơn chưa thay đổi.');
+        return;
       }
     }
 
@@ -1037,7 +1035,7 @@ export function useAdminState() {
         ord.id === orderIdOrCode ||
         ord.code === orderIdOrCode ||
         (targetOrder && (ord.id === targetOrder.id || ord.code === targetOrder.code))
-          ? { ...ord, status: newStatus }
+          ? { ...ord, status: updatedOrder?.status || newStatus, payment: updatedOrder && 'payment' in updatedOrder ? updatedOrder.payment : ord.payment }
           : ord
       )
     );

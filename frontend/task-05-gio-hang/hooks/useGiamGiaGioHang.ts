@@ -38,59 +38,52 @@ export function useCartDiscounts({
   });
 
   useEffect(() => {
-    const syncSettings = async () => {
-      // 1. Nạp từ localStorage trước (nếu có)
-      try {
-        const stored = localStorage.getItem('brewlite_store_settings');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setStoreSettings({
-            pointRate: parsed.pointRate || '1000',
-            pointRedeem: parsed.pointRedeem || '100',
-            pointToMoneyRate: parsed.pointToMoneyRate || '100',
-          });
-        }
-      } catch {}
-
-      // 2. Đồng bộ thời gian thực từ Backend API
-      try {
-        const res = await fetch(`${API}/settings/loyalty-policy`);
-        if (res.ok) {
-          const pub = await res.json();
-          if (pub?.pointRate || pub?.pointRedeem || pub?.pointToMoneyRate) {
-            const next = {
-              pointRate: String(pub.pointRate || '1000'),
-              pointRedeem: String(pub.pointRedeem || '100'),
-              pointToMoneyRate: String(pub.pointToMoneyRate || '100'),
-            };
-            setStoreSettings(next);
-            try {
-              localStorage.setItem('brewlite_store_settings', JSON.stringify(next));
-            } catch {}
-          }
-        }
-      } catch {}
+    const cacheKey = 'brewlite_loyalty_policy';
+    const updateSettings = (next: typeof storeSettings) => {
+      setStoreSettings(previous =>
+        previous.pointRate === next.pointRate &&
+        previous.pointRedeem === next.pointRedeem &&
+        previous.pointToMoneyRate === next.pointToMoneyRate ? previous : next
+      );
     };
-
-    syncSettings();
-    const handleStorage = (e: StorageEvent) => {
-      if (!e.key || e.key === 'brewlite_store_settings') syncSettings();
-    };
-    const handleCustom = (e: any) => {
-      if (e?.detail) {
-        setStoreSettings({
-          pointRate: String(e.detail.pointRate || '1000'),
-          pointRedeem: String(e.detail.pointRedeem || '100'),
-          pointToMoneyRate: String(e.detail.pointToMoneyRate || '100'),
+    // Read the loyalty cache once; contact settings must not reset the displayed points.
+    try {
+      const stored = localStorage.getItem(cacheKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        updateSettings({
+          pointRate: String(parsed.pointRate ?? '1000'),
+          pointRedeem: String(parsed.pointRedeem ?? '100'),
+          pointToMoneyRate: String(parsed.pointToMoneyRate ?? '100'),
         });
       }
-    };
+    } catch {}
 
+    const syncSettings = async () => {
+      try {
+        const response = await fetch(`${API}/settings/loyalty-policy`);
+        if (!response.ok) return;
+        const policy = await response.json();
+        if (!policy || (policy.pointRate == null && policy.pointRedeem == null && policy.pointToMoneyRate == null)) return;
+        const next = {
+          pointRate: String(policy.pointRate ?? '1000'),
+          pointRedeem: String(policy.pointRedeem ?? '100'),
+          pointToMoneyRate: String(policy.pointToMoneyRate ?? '100'),
+        };
+        updateSettings(next);
+        const serialized = JSON.stringify(next);
+        if (localStorage.getItem(cacheKey) !== serialized) localStorage.setItem(cacheKey, serialized);
+      } catch {}
+    };
+    void syncSettings();
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === cacheKey || event.key === 'brewlite_store_settings') void syncSettings();
+    };
+    const handleCustom = () => { void syncSettings(); };
     window.addEventListener('storage', handleStorage);
     window.addEventListener('focus', syncSettings);
     window.addEventListener('brewlite:settings-updated', handleCustom);
     const interval = setInterval(syncSettings, 3000);
-
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('focus', syncSettings);
@@ -226,25 +219,27 @@ export function useCartDiscounts({
   const expectedEarnedPoints = Math.floor(grandTotal / pointRateNumber);
 
   const handleSelectPromo = async (promo: PromotionItem) => {
+    if (token) {
+      try {
+        const response = await fetch(`${API}/cart/apply-voucher`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ code: promo.code }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          alert(data.message || 'Mã giảm giá không còn hợp lệ. Vui lòng chọn mã khác.');
+          return;
+        }
+        syncCartFromApi(data);
+      } catch {
+        alert('Không thể kiểm tra mã giảm giá. Vui lòng thử lại khi có kết nối.');
+        return;
+      }
+    }
     setSelectedPromo(promo);
     setVoucher(promo.code);
     setVoucherApplied(true);
-    if (token) {
-      try {
-        const res = await fetch(`${API}/cart/apply-voucher`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ code: promo.code }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          syncCartFromApi(data);
-        }
-      } catch {}
-    }
   };
 
   const handleRemovePromo = async () => {
@@ -301,7 +296,10 @@ export function useCartDiscounts({
         setVoucher(code);
         setVoucherApplied(true);
         return;
-      } catch {}
+      } catch {
+        alert('Không thể kiểm tra mã giảm giá. Vui lòng thử lại khi có kết nối.');
+        return;
+      }
     }
 
     const found = availablePromotions.find((p) => p.code.toUpperCase() === code);

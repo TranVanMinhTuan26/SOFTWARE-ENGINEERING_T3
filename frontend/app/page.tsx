@@ -2,29 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CATEGORIES, money, normalizeText } from '../features/task-03-thuc-don/du-lieu-danh-muc';
-import type { Product } from '../features/dung-chung/kieu-du-lieu-chung';
-import { API } from '../features/dung-chung/cau-hinh-api';
-import { displayOrderCode } from '../features/dung-chung/ma-don-hang';
+import { CATEGORIES, money, normalizeText } from '../task-03-thuc-don/du-lieu-danh-muc';
+import type { Product } from '../dung-chung/kieu-du-lieu-chung';
+import { API } from '../dung-chung/cau-hinh-api';
+import { getConfirmedPayment } from '../dung-chung/xac-minh-thanh-toan';
+import { displayOrderCode } from '../dung-chung/ma-don-hang';
 
 // Hooks
-import { useAuth } from '../features/task-07-xac-thuc/useXacThuc';
-import { useProducts } from '../features/task-03-thuc-don/useSanPham';
-import { useCart } from '../features/task-05-gio-hang/useGioHang';
-import { useOrders } from '../features/task-09-lich-su-don-hang/useDonHang';
+import { useAuth } from '../task-07-xac-thuc/useXacThuc';
+import { useProducts } from '../task-03-thuc-don/useSanPham';
+import { useCart } from '../task-05-gio-hang/useGioHang';
+import { useOrders } from '../task-09-lich-su-don-hang/useDonHang';
 
 // UI Components
-import { SiteHeader } from '../features/bo-cuc/DauTrang';
-import { HeroSection } from '../features/task-03-thuc-don/PhanMoDau';
-import { MenuSection } from '../features/task-03-thuc-don/PhanThucDon';
-import { CartModal } from '../features/task-05-gio-hang/HopThoaiGioHang';
-import { AuthModal } from '../features/task-07-xac-thuc/HopThoaiXacThuc';
-import { ProductDetailModal, type ProductSize } from '../features/task-04-chi-tiet-san-pham/HopThoaiChiTietSanPham';
-import { ProfileModal } from '../features/bo-cuc/HopThoaiHoSo';
-import { PaymentSuccessModal, type PaymentSuccessOrder } from '../features/task-08-thanh-toan/HopThoaiThanhToanThanhCong';
-import { MobileNavBar } from '../features/bo-cuc/ThanhDieuHuongDiDong';
-import { ToastNotification } from '../features/bo-cuc/ThongBaoNhanh';
-import { SiteFooter } from '../features/bo-cuc/ChanTrang';
+import { SiteHeader } from '../bo-cuc/DauTrang';
+import { HeroSection } from '../task-03-thuc-don/PhanMoDau';
+import { MenuSection } from '../task-03-thuc-don/PhanThucDon';
+import { CartModal } from '../task-05-gio-hang/HopThoaiGioHang';
+import { AuthModal } from '../task-07-xac-thuc/HopThoaiXacThuc';
+import { ProductDetailModal, type ProductSize } from '../task-04-chi-tiet-san-pham/HopThoaiChiTietSanPham';
+import { ProfileModal } from '../bo-cuc/HopThoaiHoSo';
+import { PaymentSuccessModal, type PaymentSuccessOrder } from '../task-08-thanh-toan/HopThoaiThanhToanThanhCong';
+import { MobileNavBar } from '../bo-cuc/ThanhDieuHuongDiDong';
+import { ToastNotification } from '../bo-cuc/ThongBaoNhanh';
+import { SiteFooter } from '../bo-cuc/ChanTrang';
 
 export default function Home() {
   // Modal states: 'login' | 'cart' | 'product-detail' | 'profile' | ''
@@ -86,43 +87,23 @@ export default function Home() {
       const params = new URLSearchParams(window.location.search);
       const responseCode = params.get('vnp_ResponseCode') || params.get('code');
       const orderIdParam = params.get('orderId') || params.get('vnp_TxnRef');
-      const amountParam = params.get('amount') || params.get('vnp_Amount');
 
       if (params.get('vnpay') === 'success') {
-        const orderCode = orderIdParam ? displayOrderCode(orderIdParam) : '#BL-ORDER';
-
-        let paidAmount = 0;
-        if (params.has('vnp_Amount')) {
-          paidAmount = Number(params.get('vnp_Amount')) / 100;
-        } else if (amountParam) {
-          paidAmount = Number(amountParam);
-        }
-
-        const activeTok = storedToken || localStorage.getItem('brewlite-token') || localStorage.getItem('brewlite_token');
-        if (activeTok) {
-          auth.loadUserProfile(activeTok);
-          orders.loadUserOrders(activeTok);
-          cart.loadCartFromDatabase(activeTok);
-        }
-
-        fetch(`${API}/products`)
-          .then((res) => (res.ok ? res.json() : Promise.reject()))
-          .then((apiData: Product[]) => {
-            if (Array.isArray(apiData) && apiData.length > 0) {
-              products.setProducts(apiData);
-            }
-          })
-          .catch(() => {});
-
-        cart.clearCart();
-        setPaymentSuccessOrder({
-          code: orderCode,
-          amount: paidAmount,
-          earnedPoints: 0,
-          pointsUsed: 0,
+        const activeToken = storedToken || localStorage.getItem('brewlite-token') || localStorage.getItem('brewlite_token');
+        void getConfirmedPayment(API, activeToken, orderIdParam).then(async order => {
+          const cleared = await fetch(`${API}/cart`, { method: 'DELETE', headers: { Authorization: `Bearer ${activeToken}` } });
+          if (!cleared.ok) throw new Error('Thanh toán đã được xác nhận nhưng chưa cập nhật được giỏ hàng. Vui lòng tải lại.');
+          cart.clearCart();
+          setPaymentSuccessOrder({ code: displayOrderCode(order), amount: order.total, earnedPoints: 0, pointsUsed: 0 });
+          if (activeToken) {
+            void auth.loadUserProfile(activeToken);
+            void orders.loadUserOrders(activeToken);
+          }
+          window.history.replaceState({}, '', '/');
+        }).catch(error => {
+          alert(error.message || 'Không thể xác minh thanh toán. Giỏ hàng được giữ nguyên.');
+          window.history.replaceState({}, '', '/');
         });
-
-        window.history.replaceState({}, '', '/');
       } else if (params.get('vnpay') === 'failed' || (responseCode && responseCode !== '00')) {
         alert(`Giao dịch thanh toán VNPay không thành công hoặc đã bị hủy (Mã phản hồi: ${responseCode}).`);
         window.history.replaceState({}, '', '/');

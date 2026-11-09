@@ -7,7 +7,7 @@ import { IngredientStockService } from '../task-10-ton-kho/ton-kho-nguyen-lieu.s
  * Xử lý hủy đơn hàng toàn diện:
  * 1. Kiểm tra tính hợp lệ của việc hủy theo finite-state machine (assertTransition)
  * 2. Hoàn tiền theo phương thức thanh toán (VNPay / COD):
- *    - Nếu payment đang SUCCESS hoặc đơn đang PAID: Cập nhật status = 'REFUNDED', responseCode = 'REFUND_COMPLETED'
+ *    - Nếu payment đang SUCCESS hoặc đơn đang PAID: Cập nhật status = 'REFUND_PENDING' (chưa gọi API hoàn tiền VNPay)
  *    - Nếu payment đang PENDING: Cập nhật status = 'CANCELLED'
  * 3. Hoàn trả nguyên liệu kho:
  *    - Chỉ hoàn nguyên liệu nếu Order.ingredientUsage khác null, hoàn ĐÚNG lượng đã lưu
@@ -73,8 +73,8 @@ export async function huyDonHangVaHoanTien(
       await tx.payment.update({
         where: { id: payment.id },
         data: {
-          status: 'REFUNDED',
-          responseCode: 'REFUND_COMPLETED',
+          status: order.total > 0 ? 'REFUND_PENDING' : 'CANCELLED',
+          responseCode: order.total > 0 ? 'REFUND_AWAITING_PROCESSING' : 'ZERO_TOTAL_CANCELLED',
         },
       });
     } else if (payment.status === 'PENDING') {
