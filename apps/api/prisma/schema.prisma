@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  PAYMENT_FAILED
+  CANCELLED
+}
+
+model User {
+  id                     String               @id @default(cuid())
+  email                  String               @unique
+  passwordHash           String
+  fullName               String?
+  phone                  String?
+  resetToken             String?
+  resetTokenExpiry       DateTime?
+  passwordResetOtp       String?
+  passwordResetOtpExpiry DateTime?
+  role                   String               @default("CUSTOMER")
+  status                 String               @default("ACTIVE")
+  loyaltyPoints          Int                  @default(0)
+  createdAt              DateTime             @default(now())
+  orders                 Order[]
+  loyaltyHistory         LoyaltyTransaction[]
+  cart                   Cart?
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  description String
+  category    String
+  price       Int
+  imageUrl    String
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+  recipeItems RecipeItem[]
+  productToppings ProductTopping[]
+
+  @@index([category, active])
+}
+
+/// Nguyên liệu trong kho. `quantity` là số nguyên theo đơn vị `unit` (g, ml, cái...).
+/// Ràng buộc CHECK "quantity >= 0" được thêm bằng SQL thủ công trong migration.
+model Ingredient {
+  id                String       @id @default(cuid())
+  name              String       @unique
+  unit              String
+  quantity          Int          @default(0)
+  costPrice         Int          @default(0)
+  lowStockThreshold Int          @default(0)
+  version           Int          @default(1)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  recipeItems       RecipeItem[]
+}
+
+/// Một dòng công thức: lượng nguyên liệu cho 1 ly size M của sản phẩm.
+model RecipeItem {
+  id           String     @id @default(cuid())
+  productId    String
+  ingredientId String
+  quantity     Int
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // Restrict: không cho xóa nguyên liệu đang nằm trong công thức (tầng service trả 409 trước).
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, ingredientId])
+  @@index([ingredientId])
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  /// Mã đơn hiển thị riêng (BL + 8 ký tự), lưu trong DB thay vì cắt từ CUID ở frontend.
+  code             String?     @unique
+  userId           String
+  status           OrderStatus @default(PENDING)
+  total            Int
+  pointsUsed       Int         @default(0)
+  pointsDiscount   Int         @default(0)
+  paymentExpiresAt DateTime?
+  /// Lượng nguyên liệu đã trừ khi đơn chuyển PAID: { [ingredientId]: quantity }.
+  /// null = chưa trừ (hoặc đã hoàn khi hủy).
+  ingredientUsage  Json?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  user             User        @relation(fields: [userId], references: [id])
+  items            OrderItem[]
+  payment          Payment?
+  promotionId      String?
+  promotion        Promotion?  @relation(fields: [promotionId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([status, paymentExpiresAt])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  size      String
+  toppings  String
+  qty       Int
+  lineTotal Int
+  /// Snapshot tại thời điểm đặt hàng: lịch sử đơn không đổi khi sản phẩm/topping được cập nhật.
+  productName      String?
+  basePrice        Int?
+  unitPrice        Int?
+  toppingsSnapshot Json?
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  orderId        String   @unique
+  idempotencyKey String   @unique
+  amount         Int
+  method         String
+  status         String
+  provider       String? // 'MOCK' | 'VNPAY'
+  transactionRef String? // VNPay transaction reference (vnp_TransactionNo)
+  responseCode   String? // VNPay response code (vnp_ResponseCode)
+  createdAt      DateTime @default(now())
+  order          Order    @relation(fields: [orderId], references: [id])
+}
+
+model Promotion {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  description    String
+  percentOff     Int       @default(0)
+  discountAmount Int       @default(0)
+  expiresAt      DateTime?
+  active         Boolean   @default(true)
+  orders         Order[]
+}
+
+model LoyaltyTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  points    Int
+  reason    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model LoyaltyRewardEvent {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  userId    String
+  points    Int
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model Cart {
+  id          String     @id @default(cuid())
+  userId      String     @unique
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voucherCode String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  items       CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  size      String   @default("M")
+  toppings  String   @default("")
+  qty       Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId, size, toppings])
+  @@index([cartId])
+  @@index([productId])
+}
+
+model StoreSettings {
+  id                String   @id @default("default")
+  storeName         String   @default("BrewLite Specialty Coffee & Tea")
+  hotline           String   @default("1900 6868 - 0988 123 456")
+  phone             String?  @default("1900 6868 - 0988 123 456")
+  address           String   @default("123 Nguyễn Thị Minh Khai, Bến Nghé, Quận 1, TP. Hồ Chí Minh")
+  email             String   @default("contact@brewlite.vn")
+  openHours         String   @default("06:30 - 22:30 hàng ngày")
+  website           String?  @default("https://brewlite.vn")
+  facebook          String?  @default("https://facebook.com/brewlite")
+  instagram         String?  @default("https://instagram.com/brewlite")
+  pointRate         String   @default("1000")
+  pointRedeem       String   @default("100")
+  pointToMoneyRate  String?  @default("100")
+  autoPrintBill     Boolean  @default(true)
+  notificationSound Boolean  @default(true)
+  allowTakeaway     Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Topping {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  price     Int      @default(10000)
+  costPrice Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  productToppings ProductTopping[]
+}
+
+model ProductTopping {
+  id        String   @id @default(cuid())
+  productId String
+  toppingId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  topping   Topping  @relation(fields: [toppingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([productId, toppingId])
+  @@index([productId])
+  @@index([toppingId])
+}
