@@ -1,0 +1,22 @@
+$kind: http-request
+name: "04 Login"
+url: http://localhost:4000/auth/login
+method: POST
+headers:
+  Content-Type: "application/json"
+body:
+  type: text
+  content: |-
+    {
+      "email": "{{email}}",
+      "password": "TestPass123!"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Logged in", () => pm.response.to.have.status(201));
+      const loginResponse = pm.response.json();
+      pm.test("JWT returned", () => pm.expect(loginResponse.accessToken).to.be.a("string"));
+      pm.collectionVariables.set("token", loginResponse.accessToken);
+    language: text/javascript
+order: 4000

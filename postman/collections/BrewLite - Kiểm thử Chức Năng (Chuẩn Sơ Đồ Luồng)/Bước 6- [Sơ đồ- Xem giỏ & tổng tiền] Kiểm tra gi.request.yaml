@@ -1,0 +1,13 @@
+$kind: http-request
+name: "06 Cart total"
+url: http://localhost:4000/cart
+method: GET
+headers:
+  Authorization: "Bearer {{token}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Cart loads", () => pm.response.to.have.status(200));
+      pm.test("Cart contains one item", () => pm.expect(pm.response.json().items).to.have.lengthOf(1));
+    language: text/javascript
+order: 6000

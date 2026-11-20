@@ -1,0 +1,15 @@
+**/node_modules
+**/.next
+**/dist
+**/.env
+**/.env.*
+**/*.tsbuildinfo
+.git
+.tools
+.npm-cache
+docs
+postman
+test-results
+playwright-report
+**/coverage
+**/*.log

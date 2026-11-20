@@ -1,0 +1,43 @@
+@baseUrl = http://localhost:4000
+
+### Menu
+# @name menu
+GET {{baseUrl}}/products
+
+### Active promotions
+GET {{baseUrl}}/promotions
+
+### Register: change email for each new account
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{"email":"rest-client@example.test","password":"TestPass123!","fullName":"REST Client"}
+
+### Login
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{"email":"rest-client@example.test","password":"TestPass123!"}
+
+@token = {{login.response.body.accessToken}}
+@productId = {{menu.response.body.$[0].id}}
+
+### Create PENDING order (VNPay only)
+# @name order
+POST {{baseUrl}}/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"items":[{"productId":"{{productId}}","size":"M","qty":1,"toppings":[]}],"paymentMethod":"VNPay"}
+
+### Get signed gateway URL: requires merchant configuration, does not mark order PAID
+POST {{baseUrl}}/payments/vnpay/create
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"orderId":"{{order.response.body.id}}"}
+
+### History
+GET {{baseUrl}}/orders/me
+Authorization: Bearer {{token}}

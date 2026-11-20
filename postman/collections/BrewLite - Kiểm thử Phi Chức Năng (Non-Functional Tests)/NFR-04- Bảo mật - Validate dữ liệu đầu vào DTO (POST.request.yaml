@@ -1,0 +1,12 @@
+$kind: http-request
+name: "Invalid JWT is rejected"
+url: http://localhost:4000/orders/me
+method: GET
+headers:
+  Authorization: "Bearer forged"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Invalid JWT rejected", () => pm.response.to.have.status(401));
+    language: text/javascript
+order: 4000

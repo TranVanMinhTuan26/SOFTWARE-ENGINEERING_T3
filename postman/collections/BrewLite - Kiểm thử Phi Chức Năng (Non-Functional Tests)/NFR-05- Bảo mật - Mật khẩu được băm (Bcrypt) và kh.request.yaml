@@ -1,0 +1,19 @@
+$kind: http-request
+name: "Registration validation"
+url: http://localhost:4000/auth/register
+method: POST
+headers:
+  Content-Type: "application/json"
+body:
+  type: text
+  content: |-
+    {
+      "email": "bad",
+      "password": "1"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Bad input rejected", () => pm.response.to.have.status(400));
+    language: text/javascript
+order: 5000

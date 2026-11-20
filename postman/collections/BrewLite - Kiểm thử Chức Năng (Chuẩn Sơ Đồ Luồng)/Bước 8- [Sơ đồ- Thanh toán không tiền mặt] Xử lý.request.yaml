@@ -1,0 +1,24 @@
+$kind: http-request
+name: "08 VNPay redirect URL"
+url: http://localhost:4000/payments/vnpay/create
+method: POST
+headers:
+  Authorization: "Bearer {{token}}"
+  Content-Type: "application/json"
+body:
+  type: text
+  content: |-
+    {
+      "orderId": "{{orderId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      if (pm.response.code === 201) {
+        pm.test("Signed VNPay URL returned", () => pm.expect(pm.response.json().paymentUrl).to.match(/^https:\/\/sandbox\.vnpayment\.vn\//));
+        pm.collectionVariables.set("paymentUrl", pm.response.json().paymentUrl);
+      } else {
+        pm.test("Unconfigured VNPay is rejected explicitly", () => { pm.response.to.have.status(400); pm.expect(pm.response.json().message).to.include("VNPay"); });
+      }
+    language: text/javascript
+order: 8000

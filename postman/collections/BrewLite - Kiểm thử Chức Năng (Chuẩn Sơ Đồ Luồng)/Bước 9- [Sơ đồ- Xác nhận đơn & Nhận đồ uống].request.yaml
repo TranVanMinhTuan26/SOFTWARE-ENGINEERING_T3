@@ -1,0 +1,13 @@
+$kind: http-request
+name: "09 Confirm pending order"
+url: http://localhost:4000/orders/{{orderId}}
+method: GET
+headers:
+  Authorization: "Bearer {{token}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Order loads", () => pm.response.to.have.status(200));
+      pm.test("Same pending order", () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get("orderId")));
+    language: text/javascript
+order: 9000

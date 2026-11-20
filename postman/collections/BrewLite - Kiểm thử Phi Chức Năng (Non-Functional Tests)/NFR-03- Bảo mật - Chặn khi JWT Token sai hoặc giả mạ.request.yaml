@@ -1,0 +1,10 @@
+$kind: http-request
+name: "Missing JWT is rejected"
+url: http://localhost:4000/orders/me
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Missing JWT rejected", () => pm.response.to.have.status(401));
+    language: text/javascript
+order: 3000
