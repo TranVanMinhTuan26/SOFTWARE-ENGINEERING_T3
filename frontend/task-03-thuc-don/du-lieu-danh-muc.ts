@@ -125,6 +125,10 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
+/**
+ * Định dạng số tiền theo quy ước Việt Nam: phân tách hàng nghìn và hiển thị
+ * đơn vị đồng, không có phần thập phân vì giá sản phẩm là số nguyên.
+ */
 export const dinhDangTienTe = (soTien: number) =>
   new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -133,5 +137,9 @@ export const dinhDangTienTe = (soTien: number) =>
   }).format(soTien);
 export const money = dinhDangTienTe;
 
+/**
+ * Chuẩn hóa chuỗi trước khi so sánh: chuẩn Unicode NFC, bỏ khoảng trắng đầu/cuối
+ * và chuyển về chữ thường để giảm khác biệt do cách nhập liệu.
+ */
 export const chuanHoaChuoi = (chuoi: string) => (chuoi || '').normalize('NFC').trim().toLowerCase();
 export const normalizeText = chuanHoaChuoi;

@@ -6,6 +6,8 @@ type HeroSectionProps = {
 };
 
 export function HeroSection({ category, setCategory }: HeroSectionProps) {
+  // Thành phần mở đầu trang thực đơn: hiển thị banner và lối tắt tới từng nhóm món.
+  // category phản ánh lựa chọn hiện tại; setCategory cập nhật bộ lọc ở component cha.
   return (
     <>
       {/* 2. Hero Section */}
@@ -30,6 +32,7 @@ export function HeroSection({ category, setCategory }: HeroSectionProps) {
             href="#menu"
             className="btn-hero"
             onClick={(e) => {
+              // Hủy hành vi mặc định của liên kết và cuộn mượt tới menu.
               e.preventDefault();
               document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' });
             }}
@@ -46,6 +49,7 @@ export function HeroSection({ category, setCategory }: HeroSectionProps) {
             key={cat.id}
             className={`circle-item ${category === cat.id ? 'active' : ''}`}
             onClick={() => {
+              // Chọn danh mục được bấm; bấm lại lựa chọn hiện tại thì bỏ lọc.
               setCategory(category === cat.id ? 'Tất cả' : cat.id);
               document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' });
             }}

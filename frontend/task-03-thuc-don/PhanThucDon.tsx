@@ -26,6 +26,9 @@ type MenuSectionProps = {
 };
 
 export function MenuSection(props: MenuSectionProps) {
+  // Thành phần danh sách món nhận dữ liệu và callback từ component cha; tại đây
+  // quản lý riêng việc tìm kiếm, chọn danh mục, hiển thị trạng thái và phân trang.
+  // Mỗi trang có tối đa 12 món.
   const pageSize = 12;
   const [page, setPage] = useState(1);
   const {
@@ -34,7 +37,10 @@ export function MenuSection(props: MenuSectionProps) {
     money, normalizeText,
   } = props;
   const pageCount = Math.ceil(filteredProducts.length / pageSize);
+  // Cắt ra đúng lát dữ liệu của trang hiện tại; chỉ số cuối của slice là loại trừ.
   const visibleProducts = filteredProducts.slice((page - 1) * pageSize, page * pageSize);
+  // Khi có tối đa 7 trang, hiện tất cả số trang. Với danh sách dài hơn, giữ
+  // trang đầu/cuối và một vùng nhỏ quanh trang hiện tại, dùng dấu ba chấm ở giữa.
   const pageNumbers: (number | 'ellipsis')[] = pageCount <= 7
     ? Array.from({ length: pageCount }, (_, index) => index + 1)
     : [
@@ -49,16 +55,21 @@ export function MenuSection(props: MenuSectionProps) {
       ];
 
   useEffect(() => {
+    // Thay đổi bộ lọc/từ khóa có thể làm trang hiện tại không còn phù hợp,
+    // nên bắt đầu lại từ trang đầu.
     setPage(1);
   }, [category, search]);
 
   useEffect(() => {
+    // Kết quả bị thu hẹp có thể làm số trang giảm. Kẹp trang hiện tại vào
+    // khoảng hợp lệ; khi không có kết quả vẫn giữ page ở mức tối thiểu là 1.
     if (page > Math.max(1, pageCount)) {
       setPage(Math.max(1, pageCount));
     }
   }, [page, pageCount]);
 
   const selectCategory = (nextCategory: string) => {
+    // Đổi danh mục từ thanh bên thì đặt lại trang trước khi cập nhật bộ lọc.
     setPage(1);
     setCategory(nextCategory);
   };
@@ -145,6 +156,9 @@ export function MenuSection(props: MenuSectionProps) {
                         {p.description}
                       </p>
                       {(() => {
+                        // Tính trạng thái còn hàng và số lượng món đã có trong giỏ.
+                        // So khớp theo ID trước, dùng tên đã chuẩn hóa để hỗ trợ
+                        // những dòng giỏ cũ không có cùng ID sản phẩm.
                         const isOutOfStock = p.available === false;
                         const qtyInCart = cart
                           .filter((i) => i.product.id === p.id || normalizeText(i.product.name) === normalizeText(p.name))
@@ -182,6 +196,8 @@ export function MenuSection(props: MenuSectionProps) {
                                   background: isAddDisabled ? '#cbd5e1' : undefined,
                                 }}
                                 onClick={async (e) => {
+                                  // Nút thêm nhanh nằm bên trong thẻ mở chi tiết;
+                                  // dừng nổi bọt để không mở chi tiết ngoài ý muốn.
                                   e.stopPropagation();
                                   if (isOutOfStock) {
                                     alert(`⚠️ Món "${p.name}" hiện đã HẾT HÀNG!`);
@@ -190,6 +206,8 @@ export function MenuSection(props: MenuSectionProps) {
                                     return;
                                   }
                                   const ok = await onAddToCart(p, 'M', [], 1);
+                                  // Chỉ hiển thị thông báo thành công nếu thao tác
+                                  // thêm vào giỏ được component cha chấp nhận.
                                   if (ok) {
                                     setToastMessage(`Đã thêm "${p.name}" vào giỏ hàng`);
                                     setTimeout(() => setToastMessage(''), 1000);
@@ -319,6 +337,8 @@ export function MenuSection(props: MenuSectionProps) {
 }
 
 function paginationButtonStyle(disabled: boolean, active = false): CSSProperties {
+  // Hàm thuần tạo style dùng chung cho nút phân trang. Hai cờ đầu vào quyết định
+  // trạng thái bị vô hiệu hóa và trạng thái trang đang được chọn.
   return {
     minWidth: '38px',
     padding: '8px 12px',
