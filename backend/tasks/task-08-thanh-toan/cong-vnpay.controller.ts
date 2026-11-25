@@ -12,6 +12,11 @@ const POST_PAID_STATUSES = ['PAID', 'PREPARING', 'READY', 'COMPLETED'];
 
 @Controller('payments')
 export class VnpayController {
+  /**
+   * Xác thực quyền trên đơn, kiểm tra trạng thái/phương thức, rồi tạo URL ký số
+   * để chuyển khách sang VNPay. Đơn tổng tiền bằng 0 được chốt trực tiếp vì
+   * không cần chuyển qua cổng thanh toán.
+   */
   @Post('vnpay/create')
   @UseGuards(TokenGuard)
   async createVnpayUrl(
@@ -93,6 +98,9 @@ export class VnpayController {
 
   @Get('vnpay/return')
   async vnpayReturn(@Query() query: Record<string, string>, @Req() req: any, @Res() res: any) {
+    // Return URL đưa trình duyệt của khách quay về sau thao tác tại VNPay.
+    // Chữ ký, mã giao dịch, số tiền và phương thức đều được kiểm tra trước khi
+    // cập nhật database; cuối cùng chuyển hướng người dùng về trang đơn hàng.
     const config = vnpayConfigFromEnv();
     const valid = verifyVnpayCallback(query, config.hashSecret);
     const responseCode = query.vnp_ResponseCode;
@@ -154,6 +162,8 @@ export class VnpayController {
   @Get('vnpay/ipn')
   @HttpCode(200)
   async vnpayIpn(@Query() query: Record<string, string>) {
+    // IPN là thông báo server-to-server từ VNPay, không phụ thuộc việc khách có
+    // quay lại website hay không. RspCode tuân theo giao thức xác nhận của VNPay.
     const config = vnpayConfigFromEnv();
     if (!verifyVnpayCallback(query, config.hashSecret)) {
       return { RspCode: '97', Message: 'Checksum failed' };

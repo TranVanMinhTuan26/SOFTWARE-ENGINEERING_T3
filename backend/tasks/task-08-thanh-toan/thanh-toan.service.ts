@@ -13,6 +13,10 @@ export interface ProcessPaymentInput {
 }
 
 // Legacy exported entry point is retained to reject old callers explicitly.
+/**
+ * Từ chối luồng thanh toán giả lập cũ. Hàm vẫn được export để các caller cũ
+ * nhận lỗi rõ ràng; thanh toán thật phải đi qua tích hợp VNPay.
+ */
 export async function xuLyGiaoDichThanhToan(_client: any, _input: ProcessPaymentInput) {
   throw new BadRequestException('Simulated payments are disabled; use VNPay');
 }
@@ -43,6 +47,10 @@ export async function quyetToanThanhToanVaTichDiem(
   tx: any,
   input: RecordSuccessfulPaymentAndLoyaltyInput
 ): Promise<{ order: any; payment: any; pointsAwarded: number; wasAlreadySettled: boolean }> {
+  // Hàm này là điểm chốt chung cho mọi thanh toán thành công. Hãy gọi bên trong
+  // transaction của cơ sở dữ liệu: nó đồng bộ kho, đơn, payment, giỏ và điểm thưởng.
+  // Thứ tự thực hiện bảo đảm đơn chỉ được PAID sau khi payment SUCCESS và việc
+  // thưởng điểm có khóa chống cộng lặp khi VNPay gửi callback nhiều lần.
   const { orderId, method, amount, provider, transactionRef, responseCode, reason, existingOrder, existingPayment, inventoryService } = input;
   const inventory = inventoryService || getInventoryService();
 
@@ -64,6 +72,8 @@ export async function quyetToanThanhToanVaTichDiem(
   }
 
   const finalAmount = amount !== undefined ? amount : order.total;
+  // PREPARING/READY/COMPLETED cũng biểu thị đơn đã từng thanh toán; callback lặp
+  // không được trừ kho lần nữa, nhưng vẫn có thể hoàn tất việc sửa payment/điểm.
   const POST_PAID_STATUSES = ['PAID', 'PREPARING', 'READY', 'COMPLETED'];
   const isAlreadyPaid = POST_PAID_STATUSES.includes(order.status);
 
@@ -98,6 +108,8 @@ export async function quyetToanThanhToanVaTichDiem(
   }
 
   if (payment) {
+    // Nếu đã có payment thì xác nhận phương thức và trạng thái trước khi cập nhật;
+    // nếu chưa có, phần dưới tạo mới một bản ghi SUCCESS cho đơn này.
     // 2a. Kiểm tra tính tương ứng của phương thức thanh toán
     if (payment.method && method && payment.method !== method) {
       throw new BadRequestException(
@@ -166,6 +178,8 @@ export async function quyetToanThanhToanVaTichDiem(
 
   // 3b. Dọn sạch giỏ hàng trong Database ngay khi đơn hàng thanh toán thành công (PAID)
   if (order.userId && typeof tx.cart?.findUnique === 'function') {
+    // Dọn các dòng giỏ và voucher sau thanh toán. Lỗi dọn giỏ được bỏ qua để
+    // không làm hỏng giao dịch thanh toán đã xác nhận.
     try {
       const userCart = await tx.cart.findUnique({ where: { userId: order.userId } });
       if (userCart) {
@@ -184,6 +198,8 @@ export async function quyetToanThanhToanVaTichDiem(
 
   // 4. Cơ chế chống cộng điểm thưởng trùng lặp (Idempotent Loyalty Reward Check)
   let alreadyAwarded = false;
+  // Hai nguồn lịch sử được kiểm tra để tương thích cả schema sự kiện mới và
+  // các giao dịch tích điểm đã được ghi theo cách cũ.
 
   // 4a. Kiểm tra bảng LoyaltyRewardEvent với khóa duy nhất theo orderId
   if (typeof tx.loyaltyRewardEvent?.findUnique === 'function') {
@@ -217,6 +233,8 @@ export async function quyetToanThanhToanVaTichDiem(
 
   let pointsAwarded = 0;
   if (!alreadyAwarded) {
+    // Tính điểm theo cấu hình cửa hàng, mặc định 1 điểm cho mỗi 1.000 VND.
+    // Event duy nhất theo orderId được ghi trước khi tăng số dư nhằm chống callback đồng thời.
     let pointRate = 1000;
     try {
       const settings = await tx.storeSettings.findFirst();

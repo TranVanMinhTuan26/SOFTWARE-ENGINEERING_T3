@@ -23,8 +23,13 @@ export async function xuLyGiaoDichCallbackVnpay(
   tx: any,
   input: ProcessVnpayCallbackTxInput,
 ): Promise<ProcessVnpayCallbackTxResult> {
+  // Xử lý lõi dùng chung cho return URL và IPN, bên trong transaction gọi từ
+  // controller. Trả outOfStock=true khi giao dịch đã thu tiền nhưng đơn hết hạn
+  // hoặc không đủ nguyên liệu, để controller hướng luồng xử lý sang hoàn tiền.
   const { orderId, responseCode, transactionRef, reason } = input;
 
+  // Khóa dòng đơn để hai callback đồng thời không cùng chuyển trạng thái/trừ kho.
+  // Một số adapter/test double không hỗ trợ raw query nên lỗi khóa được bỏ qua.
   try {
     await tx.$queryRaw`SELECT id, status FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
   } catch {}
@@ -47,6 +52,8 @@ export async function xuLyGiaoDichCallbackVnpay(
   // Nếu đơn hàng đã bị CANCELLED hoặc PAYMENT_FAILED:
   // Tuyệt đối không chuyển sang PAID theo sơ đồ trạng thái FSM; chuyển sang CANCELLED và đánh dấu REFUND_PENDING.
   if (freshOrder.status === 'CANCELLED' || freshOrder.status === 'PAYMENT_FAILED') {
+    // Giao dịch đến muộn không được hồi sinh đơn đã hết hạn: chuyển payment sang
+    // REFUND_PENDING và báo cho caller rằng cần xử lý hoàn tiền.
     if (freshOrder.status === 'PAYMENT_FAILED') {
       await tx.order.update({
         where: { id: orderId },
@@ -82,6 +89,8 @@ export async function xuLyGiaoDichCallbackVnpay(
   }
 
   try {
+    // Dùng chung nghiệp vụ chốt payment, trừ kho và thưởng điểm; tất cả nằm trong
+    // transaction để lỗi ở bước bất kỳ có thể rollback đồng bộ.
     await settleSuccessfulPaymentAndLoyalty(tx, {
       orderId,
       method: 'VNPay',
@@ -93,6 +102,8 @@ export async function xuLyGiaoDichCallbackVnpay(
       existingOrder: freshOrder,
     });
   } catch (err: any) {
+    // Riêng lỗi thiếu nguyên liệu/đụng trạng thái không hợp lệ được chuyển thành
+    // hủy đơn và chờ hoàn tiền; các lỗi không thuộc nhóm này phải nổi lên để rollback.
     // Quy tắc 10: VNPay thiếu nguyên liệu lúc PAID -> đơn CANCELLED, payment REFUND_PENDING (OUT_OF_STOCK_REFUND_PENDING), outOfStock = true
     if (err instanceof Error && ((err as any).response?.code === 'INSUFFICIENT_INGREDIENT' || err.name === 'ConflictException' || err.name === 'InsufficientIngredientError')) {
       await tx.order.update({

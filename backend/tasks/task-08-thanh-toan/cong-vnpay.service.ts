@@ -8,6 +8,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export function taiBienMoiTruong(): void {
+  // Giữ các biến môi trường đã được inject trước; nếu thiếu thông tin VNPay,
+  // thử đọc những vị trí .env phổ biến khi chạy từ root, backend hoặc build output.
   if (process.env.VNPAY_TMN_CODE && process.env.VNPAY_HASH_SECRET) return;
   const cacTepTin = [
     path.join(process.cwd(), '.env'),
@@ -48,6 +50,8 @@ export interface VnpayConfig {
 
 /** Sort object keys alphabetically (required by VNPay signing spec). */
 export function sapXepThuocTinhDoiTuong(doiTuong: Record<string, string>): Record<string, string> {
+  // Chữ ký VNPay phụ thuộc thứ tự tham số, nên tạo object mới có key xếp A-Z
+  // thay vì sắp xếp trực tiếp object đầu vào.
   const doiTuongSapXep: Record<string, string> = {};
   for (const khoa of Object.keys(doiTuong).sort()) doiTuongSapXep[khoa] = doiTuong[khoa];
   return doiTuongSapXep;
@@ -57,6 +61,8 @@ export const sortObject = sapXepThuocTinhDoiTuong;
 
 /** Build the URL-encoded signing string from sorted params, skipping empty values. */
 export function taoChuoiKyDuLieu(cacThamSo: Record<string, string>): string {
+  // Mã hóa các cặp key/value đã sắp xếp theo URLSearchParams; bỏ giá trị rỗng
+  // để chuỗi ký đúng quy tắc mà VNPay dùng khi tính chữ ký.
   const sapXep = sapXepThuocTinhDoiTuong(cacThamSo);
   const thamSoMaHoa = new URLSearchParams();
   for (const khoa of Object.keys(sapXep)) {
@@ -72,6 +78,8 @@ export const signingString = taoChuoiKyDuLieu;
 
 /** HMAC-SHA512 signature over the signing string. */
 export function kyDuLieuHmacSha512(cacThamSo: Record<string, string>, khoaBiMat: string): string {
+  // Tạo chữ ký HMAC-SHA512 trên đúng chuỗi tham số chuẩn hóa, trả về hex để
+  // gắn vào URL gửi cổng và để kiểm tra callback về sau.
   return crypto.createHmac('sha512', khoaBiMat).update(taoChuoiKyDuLieu(cacThamSo), 'utf8').digest('hex');
 }
 
@@ -79,6 +87,8 @@ export const sign = kyDuLieuHmacSha512;
 
 /** Timing-safe hex comparison (prevent timing attacks). */
 export function soSanhChuoiHexAnToan(chuoiHex1: string, chuoiHex2: string): boolean {
+  // Kiểm tra kiểu, độ dài và định dạng trước; timingSafeEqual tránh để thời gian
+  // so sánh tiết lộ vị trí byte đầu tiên khác nhau của chữ ký.
   if (typeof chuoiHex1 !== 'string' || typeof chuoiHex2 !== 'string' || chuoiHex1.length !== chuoiHex2.length) return false;
   if (!/^[a-f\d]+$/i.test(chuoiHex1) || !/^[a-f\d]+$/i.test(chuoiHex2)) return false;
   return crypto.timingSafeEqual(Buffer.from(chuoiHex1, 'hex'), Buffer.from(chuoiHex2, 'hex'));
@@ -94,6 +104,8 @@ export function xacThucCallbackVnpay(
   cacThamSo: Record<string, string>,
   khoaBiMat: string,
 ): boolean {
+  // Bỏ hai trường chữ ký khỏi bản sao tham số, tự tính chữ ký kỳ vọng rồi so
+  // sánh an toàn với vnp_SecureHash VNPay gửi về.
   if (!cacThamSo || !khoaBiMat || !cacThamSo.vnp_SecureHash) return false;
   const banSao = { ...cacThamSo };
   const chuKyNhanDuoc = banSao.vnp_SecureHash;
@@ -106,6 +118,8 @@ export const verifyVnpayCallback = xacThucCallbackVnpay;
 
 /** VNPay timestamp format: YYYYMMDDHHmmss in GMT+7. */
 export function dinhDangNgayGioVnpay(ngayGio: Date): string {
+  // Chuyển thời điểm sang GMT+7 rồi ghép các phần thành YYYYMMDDHHmmss,
+  // định dạng ngày giờ VNPay yêu cầu.
   const d = new Date(ngayGio.getTime() + 7 * 60 * 60 * 1000);
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`;
@@ -115,6 +129,8 @@ export const formatDate = dinhDangNgayGioVnpay;
 
 /** Normalize IP for VNPay (strips IPv6 prefix, takes first in X-Forwarded-For). */
 export function chuanHoaDiaChiIp(diaChiIp: string): string {
+  // Chuẩn hóa IPv6 loopback/mapped IPv4, lấy IP đầu khi proxy gửi danh sách
+  // X-Forwarded-For, giới hạn độ dài và dùng loopback làm giá trị dự phòng.
   if (!diaChiIp) return '127.0.0.1';
   if (diaChiIp.startsWith('::ffff:')) return diaChiIp.slice(7);
   if (diaChiIp === '::1') return '127.0.0.1';
@@ -125,6 +141,8 @@ export const normalizeIp = chuanHoaDiaChiIp;
 
 /** Read VNPay config from environment variables. */
 export function layCauHinhVnpayTuEnv(): VnpayConfig {
+  // Nạp .env nếu cần, sau đó trả về cấu hình chuẩn; returnUrl có địa chỉ local
+  // làm mặc định để môi trường phát triển có thể chạy khi đã khai báo credentials.
   taiBienMoiTruong();
   return {
     tmnCode: process.env.VNPAY_TMN_CODE || '',
@@ -137,6 +155,8 @@ export const vnpayConfigFromEnv = layCauHinhVnpayTuEnv;
 
 /** Check if VNPay credentials are properly configured (not placeholder values). */
 export function kiemTraDaCauHinhVnpay(cauHinh?: VnpayConfig): boolean {
+  // Có đủ merchant code và secret, đồng thời không còn dùng giá trị placeholder,
+  // mới được xem là cấu hình sẵn sàng để tạo giao dịch.
   const c = cauHinh || layCauHinhVnpayTuEnv();
   return Boolean(
     c.tmnCode &&
@@ -166,6 +186,8 @@ export function taoDuongDanThanhToanVnpay({
   clientIp: diaChiIpClient = '127.0.0.1',
   now: thoiGianHienTai = new Date(),
 }: BuildVnpayUrlParams): string {
+  // Kiểm tra cấu hình và số tiền trước khi tạo bộ tham số. VNPay nhận số tiền
+  // theo đơn vị xu (VND * 100); cùng một bộ tham số được ký và gắn vào URL.
   if (!kiemTraDaCauHinhVnpay(cauHinh)) {
     throw new Error('Chưa cấu hình VNPAY_TMN_CODE và VNPAY_HASH_SECRET trong file .env');
   }

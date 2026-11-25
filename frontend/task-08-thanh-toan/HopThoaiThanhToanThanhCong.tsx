@@ -14,6 +14,9 @@ type PaymentSuccessModalProps = {
 };
 
 export function PaymentSuccessModal({ order, onClose }: PaymentSuccessModalProps) {
+  // Hộp thoại xác nhận đơn thanh toán thành công: hiện mã đơn, số tiền và điểm.
+  // onClose được gọi khi bấm nền hoặc nút tiếp tục; click trong hộp thoại không
+  // đóng modal vì sự kiện được chặn nổi bọt ở phần tử dialog.
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
